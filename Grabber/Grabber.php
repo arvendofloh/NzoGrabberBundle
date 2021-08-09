@@ -113,7 +113,7 @@ class Grabber
         }
 
         foreach ($this->exclude as $ex) {
-            return strpos($link, ex) === false
+            return strpos($link, ex) === false;
         }
 
         return true;
