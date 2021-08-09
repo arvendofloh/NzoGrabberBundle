@@ -36,11 +36,11 @@ class Grabber
     /**
      * @param string $url
      * @param array|null $notScannedUrlsTab
-     * @param null $exclude
+     * @param array|null $exclude
      * @param array|null $extensionTab
      * @return array
      */
-    public function grabUrls($url, array $notScannedUrlsTab = null, $exclude = null, array $extensionTab = null)
+    public function grabUrls($url, array $notScannedUrlsTab = null, array $exclude = null, array $extensionTab = null)
     {
         $this->cleanArray();
 
@@ -84,24 +84,6 @@ class Grabber
         return $this->scannedUrlsTab;
     }
 
-
-    /**
-     * @param string $url
-     * @return array
-     */
-    public function grabExtrat($url)
-    {
-        $this->cleanArray();
-        $this->url = $this->cleanUrl($url);
-        $crawler = $this->client->request('GET', $this->url);
-        $this->url = $this->getDomain($this->url);
-        $this->addHostCss($crawler->filter('link[href]')->extract(array('href')));
-        $this->addHost($crawler->filter('img[src]')->extract(array('src')));
-        $this->addHost($crawler->filter('script[src]')->extract(array('src')));
-
-        return $this->scannedUrlsTab;
-    }
-
     /**
      * @param string $url
      * @return string
@@ -130,7 +112,11 @@ class Grabber
             return true;
         }
 
-        return strpos($link, $this->exclude) === false;
+        foreach ($this->exclude as $ex) {
+            return strpos($link, ex) === false
+        }
+
+        return true;
     }
 
     /**
