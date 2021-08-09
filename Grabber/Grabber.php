@@ -11,7 +11,8 @@
 
 namespace Nzo\GrabberBundle\Grabber;
 
-use Goutte\Client;
+use GuzzleHttp\Client;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Class Grabber
@@ -60,67 +61,6 @@ class Grabber
         return $this->scannedUrlsTab;
     }
 
-    /**
-     * @param $url
-     * @param string|null $exclude
-     * @param array|null $extensionTab
-     * @return array
-     */
-    public function grabUrlsNoRecursive($url, $exclude = null, array $extensionTab = null)
-    {
-        $this->cleanArray();
-
-        $this->url = $url;
-        $this->notScannedUrlsTab = null;
-        $this->extensionTab = $extensionTab;
-        $this->scannedUrlsTab[] = $this->url;
-        $this->domainUrl = $this->getDomain($this->url);
-        $this->exclude = $exclude;
-
-        $this->crawler($this->url);
-
-        return $this->scannedUrlsTab;
-    }
-
-    /**
-     * @param string $url
-     * @return array
-     */
-    public function grabImg($url)
-    {
-        $this->cleanArray();
-        $crawler = $this->client->request('GET', $url);
-        $this->url = $this->getDomain($url);
-
-        return $this->addHost($crawler->filter('img[src]')->extract(array('src')));
-    }
-
-    /**
-     * @param string $url
-     * @return array
-     */
-    public function grabJs($url)
-    {
-        $this->cleanArray();
-        $crawler = $this->client->request('GET', $url);
-        $this->url = $this->getDomain($url);
-
-        return $this->addHost($crawler->filter('script[src]')->extract(array('src')));
-    }
-
-    /**
-     * @param string $url
-     * @return array
-     */
-    public function grabCss($url)
-    {
-        $this->cleanArray();
-        $crawler = $this->client->request('GET', $url);
-        $this->url = $this->getDomain($url);
-
-        return $this->addHostCss($crawler->filter('link[href]')->extract(array('href')));
-    }
-
 
     /**
      * @param string $urlsTab
@@ -134,9 +74,9 @@ class Grabber
                 $this->scannedUrlsTab[] = $val;
             } else {
                 if ($val[0] === '/') {
-                    $this->scannedUrlsTab[] = $this->url.$val;
+                    $this->scannedUrlsTab[] = $this->url . $val;
                 } else {
-                    $this->scannedUrlsTab[] = $this->url.'/'.$val;
+                    $this->scannedUrlsTab[] = $this->url . '/' . $val;
                 }
             }
         }
@@ -144,29 +84,6 @@ class Grabber
         return $this->scannedUrlsTab;
     }
 
-    /**
-     * @param string $urlsTab
-     * @return array
-     */
-    public function addHostCss($urlsTab)
-    {
-        foreach ($urlsTab as $val) {
-            if (substr($val, -4) === '.css') {
-                $sub = substr($val, 0, 7);
-                if ('http://' === $sub || 'https:/' === $sub) {
-                    $this->scannedUrlsTab[] = $val;
-                } else {
-                    if ($val[0] === '/') {
-                        $this->scannedUrlsTab[] = $this->url.$val;
-                    } else {
-                        $this->scannedUrlsTab[] = $this->url.'/'.$val;
-                    }
-                }
-            }
-        }
-
-        return $this->scannedUrlsTab;
-    }
 
     /**
      * @param string $url
@@ -193,7 +110,7 @@ class Grabber
     {
         $url = str_replace('://www.', '://', $url);
 
-        return parse_url($url, PHP_URL_SCHEME).'://'.parse_url($url, PHP_URL_HOST);
+        return parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST);
     }
 
     public function cleanArray()
@@ -223,11 +140,20 @@ class Grabber
     private function crawler($newUrl)
     {
         try {
-            $crawler = $this->client->request('GET', $newUrl);
+            $response = $this->client->request('GET', $newUrl, [
+                'allow_redirects' => true
+            ]);
+            $html = $response->getBody()->getContents();
+            
         } catch (\Exception $e) {
             return false;
         }
 
+        if($html){
+            $crawler = new Crawler($html, $newUrl);
+        } else {
+            return false;
+        }
 
         foreach ($crawler->filter('a[href]')->links() as $domElement) {
             $link = $this->cleanUrl($domElement->getUri());
@@ -265,7 +191,7 @@ class Grabber
 
         foreach ($this->scannedUrlsTab as $val) {
             $val = str_replace('://www.', '://', $val);
-            if ($link === $val || ($verifChar && $stringUrl === $val) || (!$verifChar && $link.'/' === $val)) {
+            if ($link === $val || ($verifChar && $stringUrl === $val) || (!$verifChar && $link . '/' === $val)) {
                 return false;
             }
         }
@@ -287,7 +213,7 @@ class Grabber
         $verifChar = substr($link, -1) === '/';
         foreach ($this->notScannedUrlsTab as $val) {
             $val = str_replace('://www.', '://', $val);
-            if ($link === $val || ($verifChar && $stringUrl === $val) || (!$verifChar && $link.'/' === $val)) {
+            if ($link === $val || ($verifChar && $stringUrl === $val) || (!$verifChar && $link . '/' === $val)) {
                 return false;
             }
         }
@@ -310,7 +236,7 @@ class Grabber
         }
 
         foreach ($this->extensionTab as $extension) {
-            if (strtolower(substr($link, -(strlen($extension) + 1))) === '.'.strtolower($extension)) {
+            if (strtolower(substr($link, -(strlen($extension) + 1))) === '.' . strtolower($extension)) {
                 return false;
             }
         }
